@@ -1,0 +1,22 @@
+info:
+  name: Configuración vigente
+  type: http
+  seq: 1
+
+docs: |-
+  RF-32, RF-50 y RF-51. Umbrales, límite de monto y restricciones de carga, como
+  configuración versionada y no como constantes embebidas. Un valor sin medir
+  viaja nulo con su medición declarada, y la SPA dibuja esa marca literal: no
+  hay números plausibles de relleno.
+
+  Cualquiera de los tres perfiles la puede pedir; acá va con el del revisor.
+
+http:
+  method: GET
+  url: '{{base_url}}/configuracion'
+  auth:
+    type: bearer
+    token: '{{token_revisor}}'
+
+settings:
+  encodeUrl: true

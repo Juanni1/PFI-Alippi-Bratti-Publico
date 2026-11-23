@@ -1,0 +1,21 @@
+{
+  "cache_tag": "mobilenet_v3_small",
+  "feat_dim": 576,
+  "image_size": 64,
+  "epochs": 30,
+  "decoder_params": 2756227,
+  "seed": 0,
+  "test_size": 785,
+  "decoder": {
+    "psnr_db": 12.852146708620314,
+    "l1": 0.17098606538873823,
+    "mse": 0.05185436605141674
+  },
+  "piso_imagen_media": {
+    "psnr_db": 11.878301124146052,
+    "l1": 0.21599331023586785,
+    "mse": 0.06488882164033861
+  },
+  "ganancia_psnr_db": 0.9738455844742617,
+  "panel": "fase1\\inversion_mobilenet_v3_small.png"
+}

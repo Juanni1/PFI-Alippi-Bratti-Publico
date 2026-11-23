@@ -1,0 +1,53 @@
+info:
+  name: Registrar reclamo
+  type: http
+  seq: 1
+
+docs: |-
+  CU-01 (RF-01, RF-02, RF-04). Entre una y cinco fotografías, el relato libre
+  del reclamante sobre los daños y el monto declarado; el máximo por archivo
+  es configuración y llega por GET /configuracion. La descripción es obligatoria,
+  admite 1..2000 puntos de código luego de recortar los extremos, conserva los
+  saltos internos y no debe incluir datos personales. Devuelve la constancia de
+  MK-02.
+
+  Esta solicitud no envía Authorization y conserva el registro anónimo. Para la
+  transcripción autenticada por operador se usa `operador/00-registrar-reclamo`.
+
+  El monto es la palanca determinista del recorrido: por encima del límite de
+  RF-34 el reclamo va a revisión humana, por debajo depende de la confianza que
+  produzca el clasificador. La respuesta llega enseguida y el estado inicial es
+  «Registrado»: la prueba se genera en la cola, así que el estado definitivo se
+  consulta con «Estado del reclamo».
+
+http:
+  method: POST
+  url: '{{base_url}}/reclamos'
+  body:
+    type: multipart-form
+    data:
+      - name: photos
+        type: file
+        value:
+          - '{{ruta_foto}}'
+      - name: damageDescription
+        type: text
+        value: 'Se dañó el paragolpes y el faro.'
+      - name: declaredAmount
+        type: text
+        value: '185000.00'
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // El token en claro existe UNA sola vez, en esta respuesta (RF-47).
+        // Guardarlo en el entorno es lo que permite seguir el recorrido sin
+        // copiarlo a mano; perderlo deja el reclamo creado y sin acceso.
+        if (res.getStatus() === 201) {
+          bru.setEnvVar("numero", res.getBody().number);
+          bru.setEnvVar("token_reclamante", res.getBody().accessToken);
+        }
+
+settings:
+  encodeUrl: true

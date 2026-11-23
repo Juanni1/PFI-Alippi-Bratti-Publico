@@ -1,0 +1,11 @@
+{
+  "nombre": "base-sepolia",
+  "chainId": 84532,
+  "umbralDeDerivacionBps": 9000,
+  "gasPriceOracle": "0x420000000000000000000000000000000000000F",
+  "gasLimits": {
+    "verificador": 9000000,
+    "registro": 2000000,
+    "configuracion": 120000
+  }
+}

@@ -1,0 +1,49 @@
+info:
+  name: Registrar reclamo en nombre del reclamante
+  type: http
+  seq: 0
+
+docs: |-
+  CU-01 (RF-01, RF-02, RF-04). Variante del mismo POST /reclamos: el operador
+  transcribe el relato declarado por el reclamante y la sesión autenticada queda
+  como autor interno. El formulario conserva fotos, monto y damageDescription;
+  no envía registeredBy ni modifica el texto con nombres o diagnósticos.
+
+  El bearer se resuelve en el servidor y debe pertenecer al perfil operador. Un
+  token inválido devuelve 401 y otro perfil devuelve 403 sin publicar evidencia
+  ni crear el reclamo. La solicitud anónima de la carpeta reclamante sigue siendo
+  válida; si la constancia no se puede entregar al titular, se le puede compartir
+  su número y token de capacidad emitido.
+
+http:
+  method: POST
+  url: '{{base_url}}/reclamos'
+  auth:
+    type: bearer
+    token: '{{token_operador}}'
+  body:
+    type: multipart-form
+    data:
+      - name: photos
+        type: file
+        value:
+          - '{{ruta_foto}}'
+      - name: damageDescription
+        type: text
+        value: 'Se dañó el paragolpes y el faro.'
+      - name: declaredAmount
+        type: text
+        value: '185000.00'
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // La constancia sigue emitiendo la capacidad que puede recibir el reclamante.
+        if (res.getStatus() === 201) {
+          bru.setEnvVar("numero", res.getBody().number);
+          bru.setEnvVar("token_reclamante", res.getBody().accessToken);
+        }
+
+settings:
+  encodeUrl: true

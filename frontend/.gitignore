@@ -1,0 +1,25 @@
+# Node (se reinstala con npm install)
+node_modules/
+
+# Build (se regenera)
+dist/
+
+# Caché incremental de tsc: la reescribe cada compilación y ensucia el diff.
+*.tsbuildinfo
+
+# Secretos y configuración local. NUNCA commitear (RNF-22).
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.idea/
+# Las configuraciones de ejecución sí se versionan: son del proyecto y sirven
+# igual a los dos autores. Lo que cada uno ajuste para su máquina, no.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store
+*.local

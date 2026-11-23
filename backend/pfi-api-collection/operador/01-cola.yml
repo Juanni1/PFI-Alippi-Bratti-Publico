@@ -1,0 +1,20 @@
+info:
+  name: Estado de la cola
+  type: http
+  seq: 1
+
+docs: |-
+  RF-14, pantalla MK-07. Solo lectura: CU-10 observa sin producir cambios, y no
+  hay acción de reencolado porque ningún requerimiento la habilita (hueco
+  anotado en 00-criterios.md §4). Trae además los reclamos en Aprobable, que es
+  por donde el operador llega a la liquidación.
+
+http:
+  method: GET
+  url: '{{base_url}}/cola'
+  auth:
+    type: bearer
+    token: '{{token_operador}}'
+
+settings:
+  encodeUrl: true

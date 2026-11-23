@@ -1,0 +1,22 @@
+info:
+  name: Explicación del resultado
+  type: http
+  seq: 3
+
+docs: |-
+  RF-42 y RF-43, pantalla MK-04. Clase predicha, confianza, regla aplicada y
+  causa de derivación, y la declaración de qué tramo acredita la prueba y cuál
+  se acredita por replicación (frontera de confianza escalonada).
+
+  Un 409 no es un error del pedido: es la excepción 2a de CU-02, el reclamo
+  todavía está en la cola y no hay explicación que dar.
+
+http:
+  method: GET
+  url: '{{base_url}}/reclamos/{{numero}}/explicacion'
+  auth:
+    type: bearer
+    token: '{{token_reclamante}}'
+
+settings:
+  encodeUrl: true

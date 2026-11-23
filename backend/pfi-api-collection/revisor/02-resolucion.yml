@@ -1,0 +1,30 @@
+info:
+  name: Registrar resolución
+  type: http
+  seq: 2
+
+docs: |-
+  RF-38 y RF-39, pantalla MK-06. La justificación es obligatoria; a la cadena va
+  su hash y no su texto (RNF-24). Desde InconsistenciaEvidencia solo se admite
+  la resolución desfavorable, que es la única salida que la matriz de adr-001
+  habilita para ese estado.
+
+  Un 409 significa que la transición no figura en la matriz para el estado
+  vigente: el reclamo no estaba derivado, o ya fue resuelto.
+
+http:
+  method: POST
+  url: '{{base_url}}/reclamos/{{numero}}/resolucion'
+  auth:
+    type: bearer
+    token: '{{token_revisor}}'
+  body:
+    type: json
+    data: |-
+      {
+        "favorable": true,
+        "justification": "Las fotografías muestran un daño compatible con lo declarado y el monto está dentro de lo previsto para la pieza."
+      }
+
+settings:
+  encodeUrl: true

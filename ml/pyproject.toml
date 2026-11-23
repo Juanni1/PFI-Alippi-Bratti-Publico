@@ -1,0 +1,27 @@
+[project]
+name = "pfi-machinelearning"
+version = "0.1.0"
+description = "PFI zkML — prueba zero-knowledge de inferencia de un clasificador de imágenes (EZKL/Halo2)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "numpy>=2.4.6",
+    "onnx>=1.22.0",
+    "torch>=2.2",
+    "ezkl>=23.0.0",
+    "psutil>=7.2.2",
+    "pillow>=12.2.0",
+    "torchvision>=0.27.1",
+    "onnxruntime>=1.29.0",
+]
+
+# torch/torchvision desde el índice CUDA 12.6 de PyTorch (GPU: RTX 3080, driver 566.14).
+# El default de PyPI trae los wheels +cpu; este índice trae los +cu126.
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu126" }]
+torchvision = [{ index = "pytorch-cu126" }]

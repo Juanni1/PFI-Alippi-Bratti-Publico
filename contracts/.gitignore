@@ -1,0 +1,27 @@
+# Node / Hardhat (se reinstala con npm install; se regenera al compilar)
+node_modules/
+artifacts/
+cache/
+coverage/
+coverage.json
+typechain-types/
+
+# Salidas sueltas del generador de EZKL. El verificador que el proyecto
+# despliega SÍ se versiona, en contracts/verifier/Halo2Verifier.sol: el
+# despliegue tiene que ser reproducible y ese contrato se deriva de la misma
+# clave de verificación cuyo hash el backend fija.
+Verifier.sol
+abi.json
+calldata*
+
+# Direcciones de una corrida local. El nodo de Hardhat no persiste entre
+# arranques, así que anotarlas sería anotar algo que dejó de existir.
+despliegue-local.json
+
+# Secretos: RPC y clave privada. NUNCA commitear (RNF-22).
+.env
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

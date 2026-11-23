@@ -1,0 +1,8 @@
+info:
+  name: operador
+  seq: 4
+
+docs: |-
+  CU-01, CU-06 y CU-10, pantallas MK-06c y MK-07. El operador puede transcribir
+  un reclamo con `00-registrar-reclamo`; las demás operaciones usan
+  {{token_operador}}.

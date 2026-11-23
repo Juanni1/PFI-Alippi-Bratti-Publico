@@ -1,0 +1,36 @@
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+
+# Python / uv
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node / Vite / Hardhat
+node_modules/
+dist/
+build/
+cache/
+artifacts/
+coverage/
+coverage.json
+typechain-types/
+
+# Artefactos locales efímeros
+despliegue-local.json
+*.sqlite
+*.db
+*.log
+*.tmp
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

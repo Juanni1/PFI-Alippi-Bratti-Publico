@@ -1,0 +1,20 @@
+# Configuración como código del servicio "api" en Railway (adr-012).
+# Tiene prioridad sobre lo que diga el panel; los cambios de topología se
+# hacen acá y quedan versionados.
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+preDeployCommand = "alembic upgrade head"
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+numReplicas = 1
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+# Serverless: el servicio se suspende tras ~10 min sin tráfico SALIENTE.
+# Es lo que mantiene el costo dentro de lo presupuestado en adr-012; la
+# contracara es evitar cualquier sondeo periódico hacia Kubo
+# o hacia otros destinos externos desde el proceso API.
+sleepApplication = true

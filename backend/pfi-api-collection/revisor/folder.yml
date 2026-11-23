@@ -1,0 +1,8 @@
+info:
+  name: revisor
+  seq: 3
+
+docs: |-
+  CU-05, pantallas MK-05 y MK-06. El perfil sale del token de sesión interna
+  ({{token_revisor}}); presentar el del operador acá devuelve 403, que es RF-48
+  funcionando.

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "provenance": {
+    "verification": "base-sepolia-verification.json",
+    "verificationSha256": "f919dc07f4ff0576467e41d9cfdf951243b5d821667daab5a23d779b0c6a4ce3",
+    "deployment": "base-sepolia-deployment.json",
+    "deploymentSha256": "910812e210850b9205eede50f13427418fe2a3792b2188ee5a6670f2d72a587a",
+    "evidenceCommit": "5427b3d8d587016b06fc0d9fc64f2d9c6d818591"
+  },
+  "chainId": 84532,
+  "networkName": "base-sepolia",
+  "localTestChainId": 31337,
+  "localTestNetworkName": "localhost",
+  "wallet": "0x8DBd6376E68FCfD70Df91F1F0717aaA69c5077A0",
+  "registry": "0x7134E44Fbf6600a996E2e25B403599d0fa76400a",
+  "verifier": "0x5d6Fc29965Ee1194D401Ac4284c4B0E32A8D4263",
+  "transactions": [
+    {"stage": "verificador", "nonce": 0, "hash": "0x0be2a9a9d1d804d16029f9310488f79d812ecf889f1b3e43492b8648a42372e1", "status": 1},
+    {"stage": "registro", "nonce": 1, "hash": "0xfae1c379fe542d6b4b06b67eb275738f126cbae01b809decbd3e285a2ef5e28a", "status": 1},
+    {"stage": "umbral", "nonce": 2, "hash": "0xeb474d73f86b883c37312df986ab31e2157a044c04cf8b8f2417c61d77b8aa5e", "status": 1},
+    {"stage": "confirmacionHumana", "nonce": 3, "hash": "0x45e7b451e516994c228b92fd124d6987982cbb765ca66a620bd54cde44b5bf3d", "status": 1}
+  ]
+}

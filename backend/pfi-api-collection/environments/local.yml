@@ -1,0 +1,35 @@
+name: local
+variables:
+  - name: base_url
+    value: http://127.0.0.1:8000
+    description: |-
+      Servidor de desarrollo: `uv run uvicorn app.main:app --reload`.
+      Sin variables de entorno el backend corre con los tres adaptadores
+      simulados; el README del repo dice cómo pedirlos reales.
+  - name: token_revisor
+    value: revisor-rev-04
+    description: |-
+      Sesión interna por defecto (SESIONES_INTERNAS, formato
+      `token:perfil:identidad`). No es una credencial: la autenticación queda
+      fuera del prototipo por adr-006.
+  - name: token_operador
+    value: operador-op-02
+    description: Sesión interna por defecto del operador.
+  - name: token_reclamante
+    value: ""
+    description: |-
+      Capacidad de RF-47, emitida para UN reclamo y no derivable del número.
+      La escribe acá el guion posterior de «Registrar reclamo»; también se
+      puede pegar a mano el `accessToken` de una constancia anterior.
+  - name: numero
+    value: ""
+    description: |-
+      Número de seguimiento (p. ej. `SN-4103`). Lo escribe el guion posterior de
+      «Registrar reclamo»; para mirar otro reclamo, se reemplaza a mano.
+  - name: ruta_foto
+    value: ../../ml/fase1/patches/test/glass_shatter/000042_20.jpg
+    description: |-
+      Fotografía que sube «Registrar reclamo». La ruta se resuelve relativa a
+      esta colección. Apunta al conjunto de prueba de CarDD, que es lo que usa
+      scripts/seed-demo-claims.py: nada de imágenes fabricadas. Si los parches
+      locales no están generados, se elige el archivo desde la interfaz de Bruno.

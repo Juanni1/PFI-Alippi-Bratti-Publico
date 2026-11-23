@@ -1,0 +1,22 @@
+info:
+  name: Liquidar reclamo
+  type: http
+  seq: 2
+
+docs: |-
+  RF-37, pantalla MK-06c. Un solo control y ningún campo de texto: el pedido no
+  lleva cuerpo. CU-06 no tiene equivalente de RF-39, así que esta transición no
+  registra autor; es el hueco que 00-criterios.md §4 anota sobre la
+  responsabilidad de la liquidación.
+
+  Solo procede desde Aprobable: sobre cualquier otro estado devuelve 409.
+
+http:
+  method: POST
+  url: '{{base_url}}/reclamos/{{numero}}/liquidacion'
+  auth:
+    type: bearer
+    token: '{{token_operador}}'
+
+settings:
+  encodeUrl: true

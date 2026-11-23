@@ -1,0 +1,22 @@
+opencollection: 1.0.0
+
+info:
+  name: pfi-api-collection
+  description: |-
+    Las nueve rutas de contract/openapi.yaml más /health; /reclamos tiene dos
+    solicitudes, anónima y autenticada por operador. Las direcciones y tokens
+    salen del entorno elegido (environments/): `local` apunta al uvicorn de la
+    máquina y `produccion` al servicio de Railway. Ninguna dirección literal en
+    los pedidos (RNF-29).
+
+    El perfil lo resuelve el servidor sobre el token y nunca lo declara el
+    cliente (RF-48): por eso cada carpeta lleva el token de su perfil y no un
+    encabezado que anuncie el rol.
+
+bundled: false
+
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git

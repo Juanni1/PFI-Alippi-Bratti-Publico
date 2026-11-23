@@ -1,0 +1,235 @@
+# Diccionario de estados del reclamo — artefacto de frontera.
+#
+# Fuentes de diseño, en orden de precedencia:
+#   - ADR-001 (estados, matriz, condiciones de cada transición, invariantes)
+#   - ADR-007 (los dos caminos de la liquidación en el vocabulario de causa)
+#   - Criterios de interfaz §1 (etiqueta, causa y forma breve)
+#   - ADR-013 (contrato de API)
+#
+# De acá derivan el enum de Python y el tipo de TypeScript. El enum de Solidity
+# vive en contracts/contracts/ClaimRegistry.sol y se verifica contra
+# este archivo; no se regenera desde él.
+#
+# Las cadenas de `label` y `cause` se copian del diccionario y no se redactan de
+# nuevo por pantalla.
+
+version: 1
+source: adr-001-estados-reclamo
+
+# Los siete estados. `id` es el identificador técnico que la matriz de
+# visibilidad le concede al revisor, al operador y al auditor externo, y que las
+# láminas de MK-05, MK-07 y MK-08 dibujan con ese nombre. Nunca llega a las
+# pantallas del reclamante (RNF-35).
+states:
+  - id: Registrado
+    solidity: Registered
+    nature: initial
+    terminal: false
+    label: Recibido, en análisis
+    cause: >-
+      Recibimos tus fotos y las estamos analizando. Demora unos minutos.
+    short: Recibimos tus fotos y entraron a la cola de análisis.
+
+  - id: Aprobable
+    solidity: Approvable
+    nature: intermediate
+    terminal: false
+    label: Análisis favorable, pendiente de liquidación
+    cause: >-
+      El análisis dio favorable. Falta que la aseguradora registre el pago.
+    short: >-
+      El análisis dio favorable. Quedó pendiente el registro del pago.
+
+  # La causa no sale del estado sino del par estado y causa: son cuatro textos
+  # distintos y los enumera `causes` más abajo.
+  - id: RequiereRevision
+    solidity: ReviewRequired
+    nature: intermediate
+    terminal: false
+    label: En revisión por un analista
+    cause: null
+    short: null
+
+  # La marca [VERIFICAR] es literal y va al dibujo tal cual: las reglas de
+  # negocio del caso no están especificadas en ningún requerimiento, y es el
+  # hueco que 00-criterios.md §4 registra como el más incómodo del diseño.
+  - id: InconsistenciaEvidencia
+    solidity: EvidenceInconsistency
+    nature: intermediate
+    terminal: false
+    label: "En revisión: daño incompatible"
+    cause: >-
+      El sistema detectó *{clase}* y no coincide con lo declarado. Pasa a revisión manual.
+    short: >-
+      El sistema detectó *{clase}*, incompatible con lo declarado.
+
+  # Comparte etiqueta con RequiereRevision y no comparte causa: adr-001
+  # establece que un fallo de verificación señala un problema del lado del
+  # operador y no de la evidencia, y el texto lo declara de forma explícita.
+  - id: VerificacionFallida
+    solidity: VerificationFailed
+    nature: intermediate
+    terminal: false
+    label: En revisión por un analista
+    cause: >-
+      Falló una comprobación interna del sistema y pasó a revisión manual.
+    short: Falló una comprobación interna del sistema.
+
+  # Tres caminos, tres textos; la distinción viaja en la causa para que la
+  # pantalla no la infiera del estado.
+  - id: Aprobado
+    solidity: Approved
+    nature: terminal
+    terminal: true
+    label: Aprobado
+    cause: null
+    short: null
+
+  - id: Rechazado
+    solidity: Rejected
+    nature: terminal
+    terminal: true
+    label: Rechazado
+    cause: null
+    short: Un analista de la aseguradora registró la resolución.
+
+# Vocabulario de causa del evento de RF-26. `text` es lo que lee el reclamante;
+# null significa que la causa no llega a sus pantallas.
+causes:
+  - id: ClasificacionFavorable
+    solidity: FavorableClassification
+    text: null
+
+  - id: ConfianzaBajoUmbral
+    solidity: LowConfidence
+    text: >-
+      La certeza del análisis automático no alcanzó para resolver de forma directa.
+    source: [ADR-001, RF-29]
+
+  - id: MontoSobreUmbral
+    solidity: AmountAboveThreshold
+    text: >-
+      El monto que declaraste supera el tope para resolución automática.
+    source: [RF-34, encuesta-hallazgo-2]
+
+  - id: PoliticaConfirmacionHumana
+    solidity: HumanConfirmationPolicy
+    text: La aseguradora revisa todos los reclamos antes de cerrarlos.
+    source: [RF-35, encuesta-hallazgo-1]
+
+  - id: InconsistenciaConReglas
+    solidity: RuleInconsistency
+    text: null
+
+  - id: FalloDeVerificacion
+    solidity: VerificationFailure
+    text: null
+
+  - id: EscalamientoObligatorio
+    solidity: MandatoryEscalation
+    text: Falló una comprobación interna del sistema.
+    source: [RF-33, ADR-001]
+
+  # Los dos caminos de Aprobable -> Aprobado que adr-007 distingue. El contrato
+  # los asienta desde el 2026-08-21: `settle(claimId, automatic)` elige entre
+  # AutomaticSettlement y OperatorSettlement, y el backend declara el camino en
+  # lugar de que el contrato lo infiera. De esta distinción dependen los textos
+  # de MK-03 y MK-04 y la traza que MK-08 le muestra al auditor externo.
+  - id: LiquidacionAutomatica
+    solidity: AutomaticSettlement
+    text: >-
+      El análisis superó el umbral de certeza y la liquidación se registró de forma automática.
+    source: [RF-50, ADR-007]
+
+  - id: LiquidacionDelOperador
+    solidity: OperatorSettlement
+    text: >-
+      El análisis dio favorable y la aseguradora registró la liquidación.
+    source: [RF-37, ADR-001]
+
+  - id: ResolucionFavorable
+    solidity: FavorableResolution
+    text: Un analista revisó el caso y lo aprobó.
+    source: [RF-38, ADR-001]
+
+  - id: ResolucionDesfavorable
+    solidity: UnfavorableResolution
+    text: null
+
+# Las nueve transiciones permitidas de la matriz de adr-001, más la entrada.
+# Toda transición que no figure acá el contrato la rechaza con error explícito
+# (RF-31); los estados terminales no tienen salida (RF-40).
+transitions:
+  - from: null
+    to: Registrado
+    trigger: registerClaim
+    causes: []
+    note: La entrada no es una transición de la matriz; adr-001 la enumera aparte.
+
+  - from: Registrado
+    to: Aprobable
+    trigger: submitInference
+    causes: [ClasificacionFavorable]
+
+  - from: Registrado
+    to: RequiereRevision
+    trigger: submitInference
+    causes: [ConfianzaBajoUmbral, MontoSobreUmbral, PoliticaConfirmacionHumana]
+
+  - from: Registrado
+    to: InconsistenciaEvidencia
+    trigger: submitInference
+    causes: [InconsistenciaConReglas]
+
+  - from: Registrado
+    to: VerificacionFallida
+    trigger: submitInference
+    causes: [FalloDeVerificacion]
+
+  - from: VerificacionFallida
+    to: RequiereRevision
+    trigger: escalate
+    causes: [EscalamientoObligatorio]
+
+  - from: Aprobable
+    to: Aprobado
+    trigger: settle
+    causes: [LiquidacionAutomatica, LiquidacionDelOperador]
+
+  - from: RequiereRevision
+    to: Aprobado
+    trigger: resolve(true)
+    causes: [ResolucionFavorable]
+
+  - from: RequiereRevision
+    to: Rechazado
+    trigger: resolve(false)
+    causes: [ResolucionDesfavorable]
+
+  - from: InconsistenciaEvidencia
+    to: Rechazado
+    trigger: resolve(false)
+    causes: [ResolucionDesfavorable]
+
+# Cuando concurre más de una condición de derivación, RF-26 emite una sola causa
+# y ningún requerimiento dice cuál: 00-criterios.md §4 lo registra como hueco
+# abierto. ClaimRegistry.sol ya lo resolvió con esta precedencia, de modo que el
+# hueco está cerrado en el código y sigue anotado como abierto en la bóveda.
+cause_precedence:
+  - InconsistenciaConReglas
+  - ConfianzaBajoUmbral
+  - MontoSobreUmbral
+  - PoliticaConfirmacionHumana
+
+# Las cinco invariantes de adr-001, para que un cambio a este archivo que las
+# rompa se vea al lado de lo que rompe.
+invariants:
+  - Los estados terminales no tienen transiciones de salida.
+  - >-
+    Ninguna transición a un estado de clasificación ocurre sin prueba verificada;
+    VerificacionFallida es la excepción por construcción.
+  - La clasificación automática nunca produce un estado terminal por sí sola.
+  - Todo camino a Aprobado pasa por Aprobable o por RequiereRevision.
+  - >-
+    Un reclamo que pasó por VerificacionFallida no llega a Aprobado sin
+    intervención humana registrada.

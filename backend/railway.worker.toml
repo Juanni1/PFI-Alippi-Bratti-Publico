@@ -1,0 +1,13 @@
+# Configuración seleccionable solo para el servicio worker; no sustituye railway.toml (API).
+# Migración y respaldo se ejecutan antes del corte, desde un único proceso operador.
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "sh -c 'python -m app.queue.celery_app && exec celery -A app.queue.celery_app:celery_app worker --pool=prefork --concurrency=\"$WORKER_CONCURRENCY\" --queues=pfi_jobs --loglevel=INFO'"
+numReplicas = 1
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+sleepApplication = false

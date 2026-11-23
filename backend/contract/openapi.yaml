@@ -1,0 +1,1635 @@
+# Contrato de frontera entre backend y frontend.
+#
+# Escrito a mano y versionado antes que las implementaciones (ADR-013).
+#
+# Reglas que este archivo hace cumplir:
+#   - Un esquema de respuesta por perfil, recortado a su columna de la matriz de
+#     visibilidad (RF-46). No hay un esquema único con campos opcionales: sobre
+#     uno así la restricción no se puede afirmar ni negar.
+#   - El backend sirve la etiqueta y la causa del estado ya redactadas, tomadas
+#     de contract/states.yaml (RNF-35). El identificador técnico no entra en
+#     ninguna respuesta al reclamante.
+#   - Todo umbral sin medir viaja con valor nulo y su medición declarada. Nunca
+#     un número plausible.
+#
+# Idioma: rutas y valores de estado en español (superficie visible del dominio);
+# nombres de esquema y de propiedad en inglés (identificadores).
+
+openapi: 3.1.0
+
+info:
+  title: API de gestión de siniestros
+  version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
+  description: >-
+    Frontera entre el backend de la aseguradora y la SPA. Cubre las vistas
+    MK-01 a MK-09 del prototipo. El login y la gestión de identidades quedan
+    fuera del prototipo (ADR-006), pero se resuelven las sesiones internas
+    existentes y se aplica autorización. El registro acepta un bearer opcional
+    solo para el perfil operador.
+
+servers:
+  - url: /
+    description: >-
+      La dirección efectiva entra por variable de build en la SPA (VITE_API_URL,
+      RNF-29) y no se fija acá.
+
+tags:
+  - name: reclamante
+    description: Recorrido del reclamante, con token de capacidad (RF-47).
+  - name: revisor
+    description: Bandeja y resolución de reclamos derivados.
+  - name: operador
+    description: Registro por transcripción, liquidación y monitoreo de la cola.
+  - name: publico
+    description: >-
+      Traza auditable sin acreditación de titularidad (RF-44). La lista de
+      campos es cerrada.
+
+paths:
+  /reclamos:
+    post:
+      tags: [reclamante, operador]
+      summary: Registrar un siniestro con su evidencia fotográfica y descripción del daño
+      description: >-
+        CU-01. Recibe entre una y cinco fotografías, el monto estimado y el
+        relato libre del reclamante sobre los daños. La descripción normaliza
+        CRLF y CR a LF y recorta sus extremos antes de validar entre 1 y 2000
+        puntos de código; conserva los saltos internos y no debe incluir datos
+        personales. Sin Authorization el registro sigue siendo anónimo. Si se
+        presenta un bearer, el servidor resuelve su perfil y exige operador:
+        un token inválido recibe 401 y cualquier otro perfil recibe 403, antes
+        de publicar evidencia o crear el reclamo. El autor se obtiene de esa
+        sesión y no de un campo del formulario. Publica la evidencia en IPFS y
+        registra el reclamo en el contrato. Devuelve la constancia de MK-02,
+        con el token de capacidad que habilita el seguimiento.
+      operationId: registerClaim
+      security:
+        - {}
+        - bearerToken: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ClaimSubmission'
+      responses:
+        '201':
+          description: Reclamo registrado. Es la constancia de MK-02.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationReceipt'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: >-
+            Datos de entrada inválidos (incluida la descripción obligatoria) o
+            uno o más archivos rechazados antes de aceptar la carga (RF-02). El
+            rechazo por archivo permite corregir el que falla sin recargar los
+            que pasaron (MK-01b).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/EvidenceRejection'
+                  - $ref: '#/components/schemas/Problem'
+        '502':
+          description: >-
+            Excepción 7a de CU-01: un servicio externo no respondió y el reclamo
+            no se creó. Sin número, sin constancia y sin duplicado (MK-02b).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationFailure'
+
+  /reclamos/{numero}:
+    get:
+      tags: [reclamante, revisor, operador]
+      summary: Estado vigente y línea de tiempo del reclamo
+      description: >-
+        CU-02. El cuerpo de la respuesta depende del perfil que resuelve el token
+        (RF-46, RF-48): el reclamante recibe ClaimantClaim, el revisor
+        ReviewerClaim y el operador OperatorClaim. El perfil nunca lo declara el
+        cliente.
+      operationId: getClaim
+      parameters:
+        - $ref: '#/components/parameters/ClaimNumber'
+      responses:
+        '200':
+          description: Reclamo, recortado a los campos que la matriz admite.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ClaimantClaim'
+                  - $ref: '#/components/schemas/ReviewerClaim'
+                  - $ref: '#/components/schemas/OperatorClaim'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reclamos/{numero}/evidencia/{evidence_file_id}:
+    get:
+      tags: [revisor, operador]
+      summary: Recuperar una fotografía original del reclamo
+      description: >-
+        Solo revisor y operador. El reclamante titular recibe 403 y una
+        capacidad de otro reclamo recibe 401. Selecciona Evidence.id dentro
+        del reclamo, nunca un CID o URL provisto por el cliente. Cierra la
+        sesión SQL antes de recuperar mediante el publicador existente;
+        verifica tamaño y SHA-256 persistidos antes de servir bytes originales.
+        La publicación pública en IPFS sigue independiente de este permiso.
+      operationId: getClaimPhoto
+      parameters:
+        - $ref: '#/components/parameters/ClaimNumber'
+        - name: evidence_file_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Fotografía original con el MIME aceptado persistido.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+            X-Content-Type-Options:
+              schema:
+                type: string
+                const: nosniff
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Fotografía no encontrada en el reclamo. Si falta el reclamo se
+            conserva la respuesta NotFound existente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    const: Fotografía no encontrada en el reclamo.
+        '422':
+          description: El identificador de archivo no es un entero válido.
+        '502':
+          description: No se pudo recuperar la fotografía.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    const: No se pudo recuperar la fotografía.
+        '504':
+          description: Se agotó el tiempo para recuperar la fotografía.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    const: Se agotó el tiempo para recuperar la fotografía.
+
+  /reclamos/{numero}/explicacion:
+    get:
+      tags: [reclamante, revisor]
+      summary: Explicación en lenguaje natural del resultado
+      description: >-
+        RF-42 y RF-43. Enuncia la clase predicha, la confianza, la regla aplicada
+        y la causa de derivación, y declara qué tramo del procesamiento acredita
+        la prueba y cuál se acredita por replicación.
+      operationId: getClaimExplanation
+      parameters:
+        - $ref: '#/components/parameters/ClaimNumber'
+      responses:
+        '200':
+          description: Explicación de MK-04.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimExplanation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: >-
+            Excepción 2a de CU-02: el reclamo todavía no fue clasificado y no hay
+            explicación que dar. MK-03c anuncia la pantalla sin ofrecer acceso.
+
+  /revision/bandeja:
+    get:
+      tags: [revisor]
+      summary: Bandeja de reclamos asignados al revisor
+      description: >-
+        RF-36. Orden de llegada, declarado sobre la lista: ningún requerimiento
+        fija el criterio de reparto ni el orden, y MK-05 lo asume como
+        elaboración propia.
+      operationId: getReviewInbox
+      responses:
+        '200':
+          description: Bandeja de MK-05.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewInbox'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reclamos/{numero}/resolucion:
+    post:
+      tags: [revisor]
+      summary: Registrar la resolución de un reclamo derivado
+      description: >-
+        RF-38 y RF-39. La justificación es obligatoria; a la cadena va su hash y
+        no su texto (RNF-24). Desde InconsistenciaEvidencia solo se admite la
+        resolución desfavorable, que es la única salida de la matriz de adr-001.
+      operationId: recordResolution
+      parameters:
+        - $ref: '#/components/parameters/ClaimNumber'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolutionRequest'
+      responses:
+        '200':
+          description: Resolución asentada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransitionReceipt'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/InvalidTransition'
+
+  /reclamos/{numero}/liquidacion:
+    post:
+      tags: [operador]
+      summary: Liquidar un reclamo aprobable
+      description: >-
+        RF-37. Un solo control y ningún campo de texto (MK-06c). CU-06 no tiene
+        equivalente de RF-39, de modo que esta transición no registra autor: es
+        el hueco que 00-criterios.md §4 anota sobre la responsabilidad de la
+        liquidación.
+      operationId: settleClaim
+      parameters:
+        - $ref: '#/components/parameters/ClaimNumber'
+      responses:
+        '200':
+          description: Liquidación asentada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransitionReceipt'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/InvalidTransition'
+
+  /cola:
+    get:
+      tags: [operador]
+      summary: Estado de la cola de generación de pruebas
+      description: >-
+        RF-14. CU-10 observa sin producir cambios, así que el recurso es de solo
+        lectura y no hay acción de reencolado: ningún requerimiento la habilita,
+        y ese hueco está anotado en 00-criterios.md §4. Trae además los reclamos
+        en Aprobable, que es por donde el operador llega a la liquidación de
+        RF-37; listarlos no agrega un control ni cambia ningún estado.
+      operationId: getQueueState
+      responses:
+        '200':
+          description: Monitor de MK-07.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueState'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+
+  /cola/reconciliacion:
+    post:
+      tags: [operador]
+      summary: Reconciliación de una operación del oráculo
+      description: >-
+        ADR-018. Consulta y aplica el resultado comprobable de una operación
+        incierta o pendiente del oráculo, o devuelve su estado si aún no puede
+        resolverse. No permite forzar blind resend ni modificar contenido.
+      operationId: reconcileOracleOperation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconciliationRequest'
+      responses:
+        '200':
+          description: Estado actualizado de la operación reconciliada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OracleOperation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Operación no encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: >-
+            Cuerpo inválido. No refleja valores rechazados, incluidos bytes
+            firmados o identificadores malformados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /configuracion/publica:
+    get:
+      tags: [publico]
+      summary: Parámetros públicos del formulario de registro
+      description: >-
+        Permite preparar un reclamo antes de obtener su token de capacidad.
+        Expone solo cantidad y tamaño de archivos, formatos admitidos y límite
+        del monto. No expone versión, política, umbrales ni límites de reintento.
+      operationId: getPublicConfiguration
+      security: []
+      responses:
+        '200':
+          description: Proyección cerrada para el formulario de MK-01.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicConfiguration'
+
+  /configuracion:
+    get:
+      tags: [revisor, operador, reclamante]
+      summary: Configuración vigente
+      description: >-
+        RF-32, RF-50 y RF-51. Los valores son configuración versionada y no
+        constantes embebidas. Un valor sin medir viaja nulo con su medición
+        declarada; la SPA dibuja la marca literal, igual que las láminas.
+      operationId: getConfiguration
+      responses:
+        '200':
+          description: Configuración de MK-05 y límites de MK-01.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Configuration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /publico/reclamos/{numero}/traza:
+    get:
+      tags: [publico]
+      summary: Traza auditable del reclamo, sin acreditación de titularidad
+      description: >-
+        RF-44, RF-45 y RF-53. CU-08. La lista de campos es cerrada y el prefijo
+        de la ruta la separa en la tabla de ruteo para que sea auditable de un
+        vistazo. No expone monto, imagen, clase predicha, confianza, identidad
+        del revisor ni el texto de la justificación.
+      operationId: getPublicTrace
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ClaimNumber'
+      responses:
+        '200':
+          description: Traza pública de MK-08.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicTrace'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    # El token del reclamante es una capacidad emitida para un reclamo, no una
+    # credencial de usuario: viaja en el FRAGMENTO de la dirección que recibe y
+    # la SPA lo reenvía en este encabezado, de modo que no queda en los registros
+    # de acceso de las plataformas (adr-013). El de los perfiles internos es la
+    # sesión configurada cuyo rol es un claim del token (adr-006).
+    bearerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ClaimNumber:
+      name: numero
+      in: path
+      required: true
+      description: >-
+        Número de seguimiento que el reclamante recibe en la constancia. No es la
+        llave del recurso: identificar y abrir se separaron con RF-47.
+      schema:
+        type: string
+        pattern: '^SN-[0-9]{4,}$'
+        examples: ['SN-4103']
+
+  responses:
+    Unauthorized:
+      description: >-
+        Token ausente, vencido o emitido para otro reclamo (RF-47). No distingue
+        entre reclamo inexistente y token inválido.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: >-
+        El perfil del token no admite la operación (RF-48). El rol se resuelve
+        sobre el token y nunca sobre lo que declare el cliente.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: No existe un reclamo con ese número.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InvalidTransition:
+      description: >-
+        La transición pedida no figura en la matriz de adr-001 para el estado
+        vigente (RF-31, RF-40).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    # ---------------------------------------------------------------------
+    # Vocabulario compartido. Los valores salen de contract/states.yaml.
+    # ---------------------------------------------------------------------
+
+    ClaimStatusId:
+      description: >-
+        Identificador técnico del estado. La matriz de visibilidad se lo concede
+        al revisor, al operador y al auditor externo, y se lo niega al reclamante
+        (RNF-35).
+      type: string
+      enum:
+        - Registrado
+        - Aprobable
+        - RequiereRevision
+        - InconsistenciaEvidencia
+        - VerificacionFallida
+        - Aprobado
+        - Rechazado
+
+    TransitionCauseId:
+      description: >-
+        Vocabulario de causa del evento de RF-26. LiquidacionAutomatica y
+        LiquidacionDelOperador distinguen los dos caminos de Aprobable a Aprobado
+        (adr-007), y ClaimRegistry.sol los asienta por separado desde el
+        2026-08-21: settle(claimId, automatic) elige entre AutomaticSettlement y
+        OperatorSettlement.
+      type: string
+      enum:
+        - ClasificacionFavorable
+        - ConfianzaBajoUmbral
+        - MontoSobreUmbral
+        - PoliticaConfirmacionHumana
+        - InconsistenciaConReglas
+        - FalloDeVerificacion
+        - EscalamientoObligatorio
+        - LiquidacionAutomatica
+        - LiquidacionDelOperador
+        - ResolucionFavorable
+        - ResolucionDesfavorable
+
+    DamageClass:
+      description: >-
+        Las seis clases del clasificador entrenado sobre CarDD. El circuito emite
+        logits; softmax y argmax se calculan fuera (RF-16).
+      type: string
+      enum: [abolladura, rayon, rotura_vidrio, faro_roto, neumatico_desinflado, fisura]
+
+    # `label` y `cause` vienen ya redactadas del diccionario y no se reescriben
+    # en el cliente. Es lo que hace que RNF-35 se aplique del lado del servidor.
+    ClaimantStatus:
+      type: object
+      required: [label, cause]
+      properties:
+        label:
+          type: string
+          examples: ['Análisis favorable, pendiente de liquidación']
+        cause:
+          type: string
+          examples:
+            - >-
+              El análisis automático dio un resultado favorable. Falta que la
+              aseguradora registre la liquidación.
+      additionalProperties: false
+
+    TimelineEntry:
+      description: Entrada de la línea de tiempo de MK-03, en forma breve.
+      type: object
+      required: [occurredAt, label, cause]
+      properties:
+        occurredAt:
+          type: string
+          format: date-time
+        label:
+          type: string
+        cause:
+          description: >-
+            Forma breve del diccionario, redactada para una transición ya
+            ocurrida. La etiqueta no cambia entre las dos formas; lo que se
+            acorta es la causa.
+          type: string
+      additionalProperties: false
+
+    Receipt:
+      description: >-
+        Sección secundaria de constancia. La matriz le concede al reclamante el
+        identificador de la evidencia, el hash de la prueba y los de transacción
+        acá, y no en la vista principal.
+      type: object
+      required: [evidenceId, transactionHashes]
+      properties:
+        evidenceId:
+          description: Identificador de contenido de la evidencia en IPFS.
+          type: string
+          examples: ['bafkreib32b4tivsgh5ll4d65mst2akk6wocdk2rqjuir3xwzsbu5csefoe']
+        transactionHashes:
+          description: >-
+            Hashes de las transacciones que asentaron el reclamo, uno por
+            escritura. Sin patrón: las láminas los dibujan abreviados y declaran
+            que son valores de ejemplo, y un patrón estricto haría fallar por
+            forma a datos que el proyecto presenta como ilustrativos.
+          type: array
+          items:
+            type: string
+        proofHash:
+          description: >-
+            Nulo mientras el reclamo esté en Registrado: la prueba todavía no se
+            generó. Es el hueco que 00-criterios.md §4 anota sobre desde cuándo
+            existe cada elemento de la matriz.
+          type: [string, 'null']
+        publicTraceUrl:
+          type: string
+      additionalProperties: false
+
+    # ---------------------------------------------------------------------
+    # MK-01 y MK-02 — carga y constancia
+    # ---------------------------------------------------------------------
+
+    ClaimSubmission:
+      type: object
+      required: [photos, declaredAmount, damageDescription]
+      properties:
+        photos:
+          description: >-
+            Entre una y cinco fotografías JPEG o PNG (RF-01, RF-02). El máximo de
+            tamaño por archivo es configuración y llega por GET /configuracion.
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+            format: binary
+        declaredAmount:
+          description: >-
+            Monto de reparación estimado que declara el reclamante (RF-04). El
+            modelo clasifica tipo de daño y no estima costo.
+          type: number
+          exclusiveMinimum: 0
+        damageDescription:
+          description: >-
+            Relato libre del reclamante, no diagnóstico ni clase predicha.
+            Luego de normalizar CRLF y CR a LF y quitar espacios Unicode extremos,
+            debe tener entre 1 y 2000 puntos de código. Se conservan los saltos
+            internos; el límite se aplica al texto normalizado, no al multipart
+            recibido. No incluir datos personales.
+          type: string
+          minLength: 1
+        incidentDate:
+          type: string
+          format: date
+      additionalProperties: false
+
+    RegistrationReceipt:
+      description: Constancia de MK-02.
+      type: object
+      required: [number, registeredAt, status, submitted, receipt, accessToken]
+      properties:
+        number:
+          type: string
+          examples: ['SN-4127']
+        registeredAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/ClaimantStatus'
+        submitted:
+          type: object
+          required: [damageDescription, photoCount, declaredAmount]
+          properties:
+            photoCount:
+              type: integer
+              minimum: 1
+              maximum: 5
+            declaredAmount:
+              type: number
+            damageDescription:
+              type: string
+              description: Relato enviado en este registro.
+          additionalProperties: false
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        accessToken:
+          description: >-
+            Token de capacidad de RF-47, aleatorio y firmado, nunca derivable del
+            número. La SPA lo pone en el fragmento del enlace de seguimiento.
+          type: string
+        onChainScope:
+          description: >-
+            Qué quedó asentado en la cadena. Elemento 9 de MK-02: quedó el
+            identificador, no las imágenes.
+          type: string
+      additionalProperties: false
+
+    EvidenceRejection:
+      description: >-
+        Rechazo por archivo de RF-02. Un error con un único texto obligaría a la
+        SPA a interpretarlo para decidir qué fila marcar.
+      type: object
+      required: [rejected]
+      properties:
+        rejected:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [filename, reason, message]
+            properties:
+              filename:
+                type: string
+              reason:
+                type: string
+                enum: [formato_no_admitido, excede_tamano_maximo, cantidad_excedida]
+              message:
+                description: Texto que la fila de MK-01b dibuja, ya redactado.
+                type: string
+                examples: ['PDF no admitido. Subí JPEG o PNG.']
+            additionalProperties: false
+        acceptedCount:
+          description: >-
+            Archivos válidos. El contador de MK-01b distingue válidos de
+            cargados, y el mínimo y el máximo de RF-01 se cuentan sobre estos.
+          type: integer
+      additionalProperties: false
+
+    RegistrationFailure:
+      description: >-
+        Excepción 7a de CU-01. Declara lo que no quedó, para que el reclamante no
+        suponga un duplicado. El paso 8 no tiene curso de excepción escrito y ese
+        hueco está anotado en 00-criterios.md §4.
+      type: object
+      required: [message, retryable]
+      properties:
+        message:
+          type: string
+        retryable:
+          type: boolean
+        submissionPreserved:
+          description: >-
+            La descripción, las fotos y el monto siguen disponibles para
+            reintentar mientras el formulario permanezca abierto.
+          type: boolean
+      additionalProperties: false
+
+    # ---------------------------------------------------------------------
+    # MK-03 — estado y línea de tiempo, por perfil
+    # ---------------------------------------------------------------------
+
+    # Sin identificador técnico de estado, sin logits, sin identidad del revisor
+    # (solo el rol). Columna «Reclamante» de la matriz.
+    ClaimantClaim:
+      type: object
+      required: [number, status, timeline, claim, receipt]
+      properties:
+        number:
+          type: string
+        status:
+          $ref: '#/components/schemas/ClaimantStatus'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineEntry'
+        claim:
+          type: object
+          required: [photoCount, declaredAmount, damageDescription]
+          properties:
+            incidentDate:
+              type: string
+              format: date
+            damageDescription:
+              description: >-
+                Relato privado del reclamante. Nulo en los registros históricos
+                en los que no se capturó.
+              type: [string, 'null']
+            photoCount:
+              type: integer
+            declaredAmount:
+              type: number
+          additionalProperties: false
+        queue:
+          description: >-
+            Solo mientras no haya clasificación (MK-03c). La espera estimada no
+            está acotada por ningún requerimiento y viaja como valor sin medir.
+          type: [object, 'null']
+          properties:
+            position:
+              type: integer
+            estimatedWait:
+              $ref: '#/components/schemas/UnmeasuredString'
+          additionalProperties: false
+        resolution:
+          description: >-
+            Presente en los estados terminales. Del revisor figura el rol y nunca
+            la identidad.
+          type: [object, 'null']
+          properties:
+            role:
+              type: string
+              examples: ['analista']
+            justification:
+              type: string
+            justificationHash:
+              type: string
+          additionalProperties: false
+        appealNotice:
+          description: >-
+            Vía de apelación enunciada en texto y sin control funcional: el punto
+            resuelto 4 de adr-001 la modela como reclamo nuevo, fuera del
+            prototipo.
+          type: [string, 'null']
+        explanationAvailable:
+          description: >-
+            Falso mientras el reclamo esté sin clasificar: MK-03c anuncia MK-04
+            sin ofrecer acceso.
+          type: boolean
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+      additionalProperties: false
+
+    # Único esquema con logits: cuando la confianza cae bajo el umbral, la
+    # segunda clase más probable es la información que sostiene la decisión.
+    ReviewerClaim:
+      type: object
+      required: [number, statusId, status, evidence, inference, cause, trace, declaredAmount, damageDescription, registeredBy]
+      properties:
+        number:
+          type: string
+        statusId:
+          $ref: '#/components/schemas/ClaimStatusId'
+        status:
+          $ref: '#/components/schemas/ClaimantStatus'
+        evidence:
+          $ref: '#/components/schemas/EvidenceDetail'
+        inference:
+          $ref: '#/components/schemas/ReviewerInference'
+        cause:
+          $ref: '#/components/schemas/DerivationCause'
+        trace:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transition'
+        declaredAmount:
+          type: number
+        damageDescription:
+          description: Relato privado del reclamante; nulo en registros históricos.
+          type: [string, 'null']
+        registeredBy:
+          description: >-
+            Identidad privada del operador que registró el relato; nula en
+            registros anónimos y legacy.
+          type: [string, 'null']
+        assignment:
+          type: object
+          properties:
+            unopened:
+              type: boolean
+            assignedAt:
+              type: string
+              format: date-time
+          additionalProperties: false
+        availableResolutions:
+          description: >-
+            Desde InconsistenciaEvidencia trae solo la desfavorable: la matriz de
+            adr-001 no le da otra salida, y MK-06b escribe la restricción al lado
+            del control.
+          type: array
+          items:
+            type: string
+            enum: [favorable, desfavorable]
+        resolution:
+          $ref: '#/components/schemas/InternalResolution'
+      additionalProperties: false
+
+    InternalResolution:
+      description: >-
+        Registro de la decisión humana en los estados terminales (RF-39). La
+        matriz de visibilidad le concede la identidad de quien resolvió al revisor
+        y al operador, se la niega al auditor externo y al reclamante le deja solo
+        el rol, así que este objeto no entra en ClaimantClaim ni en PublicTrace.
+        Nulo mientras el reclamo no esté resuelto, y nulo también cuando el cierre
+        fue una liquidación automática: esa transición no tiene autor a quién
+        registrar, que es precisamente lo que el vocabulario de causa permite
+        reconocer.
+      type: [object, 'null']
+      properties:
+        reviewer:
+          type: string
+        role:
+          type: string
+        recordedAt:
+          type: string
+          format: date-time
+        justification:
+          type: string
+        justificationHash:
+          description: >-
+            Lo único de este objeto que llega a la cadena (RNF-24). Ninguna regla
+            fija todavía cómo se normaliza el texto antes de calcularlo, de modo
+            que un auditor que quisiera recalcularlo no tiene la regla exacta.
+          type: string
+      additionalProperties: false
+
+    # Mismo reclamo que el anterior y sin el vector de logits: es la celda de la
+    # matriz que da sentido a filtrar por campo y no por pantalla (RF-46).
+    OperatorClaim:
+      type: object
+      required: [number, statusId, status, evidence, inference, declaredAmount, damageDescription, registeredBy]
+      properties:
+        number:
+          type: string
+        statusId:
+          $ref: '#/components/schemas/ClaimStatusId'
+        status:
+          $ref: '#/components/schemas/ClaimantStatus'
+        evidence:
+          $ref: '#/components/schemas/EvidenceDetail'
+        inference:
+          $ref: '#/components/schemas/OperatorInference'
+        declaredAmount:
+          type: number
+        damageDescription:
+          description: Relato privado del reclamante; nulo en registros históricos.
+          type: [string, 'null']
+        registeredBy:
+          description: >-
+            Identidad privada del operador que registró el relato; nula en
+            registros anónimos y legacy.
+          type: [string, 'null']
+        trace:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transition'
+        settleable:
+          description: >-
+            Verdadero solo en Aprobable. La condición de MK-06c es confianza
+            entre los dos umbrales: alcanzó el de derivación y no el de
+            liquidación automática, así que el cierre no es automático.
+          type: boolean
+        resolution:
+          $ref: '#/components/schemas/InternalResolution'
+      additionalProperties: false
+
+    EvidenceDetail:
+      type: object
+      required: [evidenceId, files]
+      properties:
+        evidenceId:
+          type: string
+        files:
+          type: array
+          items:
+            type: object
+            required: [filename, sha256]
+            properties:
+              filename:
+                type: string
+              sizeBytes:
+                type: integer
+              sha256:
+                description: Hash calculado en el momento de la recepción (RF-03).
+                type: string
+              url:
+                description: >-
+                  Ruta relativa /reclamos/{numero}/evidencia/{evidence_file_id}
+                  para recuperar el original con la sesión interna. La matriz se
+                  la concede al revisor y al operador, no al reclamante ni al
+                  auditor externo. Nunca contiene una URL privada de Kubo.
+                type: string
+            additionalProperties: false
+      additionalProperties: false
+
+    OperatorInference:
+      type: object
+      required: [predictedClass, confidence]
+      properties:
+        predictedClass:
+          $ref: '#/components/schemas/DamageClass'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        modelVersion:
+          type: string
+        artifactHashes:
+          description: Hashes de los dos artefactos ONNX, extractor y cabeza (RF-17).
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: false
+
+    ReviewerInference:
+      allOf:
+        - $ref: '#/components/schemas/OperatorInference'
+        - type: object
+          required: [logits]
+          properties:
+            logits:
+              description: >-
+                Distribución sobre las seis clases. El circuito emite los valores
+                crudos y el porcentaje se calcula afuera (RF-16); la nota de
+                normalización de MK-06 dice exactamente eso.
+              type: array
+              minItems: 6
+              maxItems: 6
+              items:
+                type: number
+
+    DerivationCause:
+      type: object
+      required: [id]
+      properties:
+        id:
+          $ref: '#/components/schemas/TransitionCauseId'
+        text:
+          type: [string, 'null']
+        amountWasNotTheCause:
+          description: >-
+            MK-06 le afirma al revisor que el monto no fue la causa. La afirmación
+            solo se sostiene porque el contrato elige la causa con una precedencia
+            fija; el requerimiento que la fije sigue faltando (00-criterios §4).
+          type: boolean
+      additionalProperties: false
+
+    Transition:
+      type: object
+      required: [from, to, cause, occurredAt]
+      properties:
+        from:
+          oneOf:
+            - $ref: '#/components/schemas/ClaimStatusId'
+            - type: 'null'
+        to:
+          $ref: '#/components/schemas/ClaimStatusId'
+        cause:
+          description: >-
+            Nula en la entrada a Registrado: la creación del reclamo no es una
+            transición de la matriz de adr-001 y el contrato la emite con su
+            propio evento, sin causa.
+          oneOf:
+            - $ref: '#/components/schemas/TransitionCauseId'
+            - type: 'null'
+        occurredAt:
+          type: string
+          format: date-time
+        blockNumber:
+          type: integer
+        transactionHash:
+          type: string
+        proofHash:
+          description: Cero en las transiciones sin prueba.
+          type: [string, 'null']
+      additionalProperties: false
+
+    # ---------------------------------------------------------------------
+    # MK-04 — explicación
+    # ---------------------------------------------------------------------
+
+    ClaimExplanation:
+      description: >-
+        Los cinco eslabones de MK-04. RF-42 entrega la traza legible del criterio
+        aplicado; RF-43 impide que el sistema se atribuya una capacidad que no
+        tiene.
+      type: object
+      required: [evidence, model, proof, rule, outcome]
+      properties:
+        evidence:
+          type: object
+          required: [fileCount, submittedAt, publishedFeatureVector]
+          properties:
+            fileCount:
+              type: integer
+            submittedAt:
+              type: string
+              format: date-time
+            publishedFeatureVector:
+              description: >-
+                Explica que las fotos quedan accesibles por su identificador en
+                IPFS y que el análisis utiliza características derivadas de ellas.
+                No presenta el almacenamiento público como confidencial.
+              type: object
+              required: [published, dimension]
+              properties:
+                published:
+                  type: boolean
+                dimension:
+                  type: integer
+                  examples: [576]
+                notice:
+                  type: string
+              additionalProperties: false
+          additionalProperties: false
+        model:
+          type: object
+          required: [predictedClass, confidence]
+          properties:
+            predictedClass:
+              $ref: '#/components/schemas/DamageClass'
+            confidence:
+              type: number
+            accredited:
+              description: >-
+                Falso en la variante de verificación fallida: la clase se muestra
+                rotulada como sin acreditar (MK-04b).
+              type: boolean
+          additionalProperties: false
+        proof:
+          description: >-
+            Qué acredita la prueba, cómo se comprueba el tramo que no cubre y qué
+            no acredita. La garantía es escalonada y hay que declararlo.
+          type: object
+          required: [provenSegment, replicatedSegment, disclaimer]
+          properties:
+            provenSegment:
+              type: string
+              examples: ['de las características a los logits, acreditado por prueba']
+            replicatedSegment:
+              type: string
+              examples: ['del píxel a las características, acreditado por replicación']
+            disclaimer:
+              type: string
+              examples:
+                - >-
+                  La prueba acredita que el modelo declarado se ejecutó de forma
+                  correcta; no justifica por qué llegó a ese resultado.
+            verificationFailed:
+              type: boolean
+            transactionHash:
+              type: string
+          additionalProperties: false
+        rule:
+          type: object
+          properties:
+            confidenceAgainstThreshold:
+              $ref: '#/components/schemas/ThresholdComparison'
+            amountAgainstLimit:
+              $ref: '#/components/schemas/ThresholdComparison'
+            autoSettlementApplied:
+              type: boolean
+          additionalProperties: false
+        outcome:
+          $ref: '#/components/schemas/ClaimantStatus'
+      additionalProperties: false
+
+    ThresholdComparison:
+      description: >-
+        El valor observado siempre existe; el umbral contra el que se compara
+        puede no estar medido, y en ese caso viaja nulo y la pantalla dibuja la
+        marca. Elegir un umbral antes de medirlo sería un número plausible.
+      type: object
+      required: [observed, threshold, satisfied]
+      properties:
+        observed:
+          type: number
+        threshold:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        satisfied:
+          type: [boolean, 'null']
+      additionalProperties: false
+
+    # ---------------------------------------------------------------------
+    # MK-05 — bandeja del revisor
+    # ---------------------------------------------------------------------
+
+    ReviewInbox:
+      type: object
+      required: [assignedTotal, unopened, ordering, rows, configuration]
+      properties:
+        assignedTotal:
+          type: integer
+        unopened:
+          type: integer
+        ordering:
+          description: >-
+            Orden de llegada, declarado sobre la lista. RF-36 no fija criterio de
+            reparto, ni orden, ni qué ocurre cuando el asignado no está.
+          type: string
+          enum: [llegada]
+        humanConfirmationBanner:
+          description: >-
+            Presente con el modo de RF-35 activo: la clasificación no emite
+            Aprobable y la liquidación automática queda sin efecto.
+          type: [string, 'null']
+        rows:
+          type: array
+          items:
+            type: object
+            required: [number, statusId, cause, unopened]
+            properties:
+              number:
+                type: string
+              statusId:
+                $ref: '#/components/schemas/ClaimStatusId'
+              cause:
+                $ref: '#/components/schemas/DerivationCause'
+              predictedClass:
+                $ref: '#/components/schemas/DamageClass'
+              confidence:
+                type: [number, 'null']
+              accredited:
+                description: >-
+                  Falso cuando el reclamo llegó por escalamiento y la
+                  comprobación criptográfica no se completó: la fila rotula la
+                  clase como sin acreditar (RNF-17), porque una clase mostrada
+                  sin ese rótulo tendría en la bandeja el mismo peso que una
+                  verificada.
+                type: boolean
+              runnerUpClass:
+                $ref: '#/components/schemas/DamageClass'
+              declaredAmount:
+                type: number
+              unopened:
+                type: boolean
+              arrivedAt:
+                type: string
+                format: date-time
+            additionalProperties: false
+        configuration:
+          $ref: '#/components/schemas/Configuration'
+      additionalProperties: false
+
+    ResolutionRequest:
+      type: object
+      required: [favorable, justification]
+      properties:
+        favorable:
+          type: boolean
+        justification:
+          description: >-
+            Obligatoria (RF-39). A la cadena va su hash; el texto, la identidad y
+            la marca temporal quedan fuera (RNF-24). Ninguna regla fija todavía
+            cómo se normaliza el texto antes de hashearlo, y sin esa forma
+            canónica un auditor no puede recalcularlo.
+          type: string
+          minLength: 1
+      additionalProperties: false
+
+    TransitionReceipt:
+      type: object
+      required: [number, statusId, transition]
+      properties:
+        number:
+          type: string
+        statusId:
+          $ref: '#/components/schemas/ClaimStatusId'
+        transition:
+          $ref: '#/components/schemas/Transition'
+      additionalProperties: false
+
+    # ---------------------------------------------------------------------
+    # MK-07 — monitor de la cola
+    # ---------------------------------------------------------------------
+
+    QueueState:
+      type: object
+      required: [counters, running, pending, failed, oracleBlocked, oracleOperations]
+      properties:
+        counters:
+          type: object
+          required: [pending, running, failed]
+          properties:
+            pending:
+              type: integer
+            running:
+              type: integer
+            failed:
+              type: integer
+            lastPositionWait:
+              description: >-
+                Espera del último de la lista. Es el número que ningún
+                requerimiento acota: RNF-06 mide con la cola vacía.
+              $ref: '#/components/schemas/UnmeasuredString'
+          additionalProperties: false
+        concurrency:
+          description: >-
+            Uno en el prototipo. Dejó de ser consecuencia de una medición: con el
+            circuito actual el pico es de 0,79 GB y la imposición desapareció, de
+            modo que hoy es decisión de diseño y su umbral efectivo está sin
+            medir.
+          type: integer
+        running:
+          type: array
+          items:
+            type: object
+            required: [number, stage, elapsedSeconds]
+            properties:
+              number:
+                type: string
+              stage:
+                type: string
+                enum: [recuperacion, extraccion, generacion, verificacion_local, envio]
+              elapsedSeconds:
+                type: number
+              typicalSeconds:
+                type: number
+            additionalProperties: false
+        pending:
+          type: array
+          items:
+            type: object
+            required: [number, position, enqueuedAt]
+            properties:
+              number:
+                type: string
+              position:
+                type: integer
+              enqueuedAt:
+                type: string
+                format: date-time
+              estimatedStartAt:
+                type: [string, 'null']
+                format: date-time
+            additionalProperties: false
+        failed:
+          type: array
+          items:
+            type: object
+            required: [number, reason, attempt, claimStatusId]
+            properties:
+              number:
+                type: string
+              reason:
+                description: >-
+                  RF-13 no distingue los fallos que el reintento corrige de los
+                  que no: la evidencia no recuperada es transitorio y el hash
+                  ONNX que no coincide da el mismo resultado en cada corrida.
+                type: string
+                enum:
+                  - evidencia_no_recuperada
+                  - artefacto_no_declarado
+                  - memoria_agotada
+                  - verificacion_local_fallida
+              attempt:
+                type: integer
+              maxAttempts:
+                $ref: '#/components/schemas/UnmeasuredNumber'
+              claimStatusId:
+                $ref: '#/components/schemas/ClaimStatusId'
+              definitive:
+                type: boolean
+            additionalProperties: false
+        settleable:
+          description: >-
+            Los reclamos en Aprobable, esperando la liquidación de RF-37. No son
+            trabajos de la cola y no entran en los contadores: la cola termina
+            cuando hay prueba enviada y esto es lo que sigue. Viajan acá porque
+            el operador no tenía por dónde llegar a liquidar, y la bandeja de
+            RF-36 es del revisor; el recurso sigue siendo de solo lectura.
+          type: array
+          items:
+            type: object
+            required: [number]
+            properties:
+              number:
+                type: string
+              declaredAmount:
+                type: number
+              approvableSince:
+                description: >-
+                  Marca de la transición a Aprobable, no de la última escritura
+                  sobre la fila. Nula si el reclamo llegó al estado sin dejar
+                  transición.
+                type: [string, 'null']
+                format: date-time
+            additionalProperties: false
+        processorStopped:
+          description: >-
+            MK-07b. El trabajo en curso vuelve a la cola y conserva su lugar
+            (RNF-18); reanudar es operación de infraestructura y queda fuera de
+            la pantalla.
+          type: boolean
+        oracleBlocked:
+          description: >-
+            Indica si la wallet del oráculo se encuentra bloqueada por una operación
+            activa o incierta (ADR-018).
+          type: boolean
+        oracleOperations:
+          description: >-
+            Lista de operaciones del oráculo pendientes, en curso o inciertas
+            (ADR-018). Vacía si no hay operaciones sin resolver.
+          type: array
+          items:
+            $ref: '#/components/schemas/OracleOperation'
+      additionalProperties: false
+
+    OracleOperation:
+      description: >-
+        Operación duradera del oráculo en la cadena (ADR-018). No expone
+        claves privadas, remitente, nonce ni bytes crudos.
+      type: object
+      required: [operationId, number, operation, status]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        number:
+          type: string
+        operation:
+          type: string
+          enum: [register_claim, submit_inference, resolve, settle]
+        status:
+          type: string
+          enum: [preparada, firmada, enviada, confirmada, revertida, incierta]
+        transactionHash:
+          type: [string, 'null']
+        blockNumber:
+          type: [integer, 'null']
+        lastErrorCode:
+          type: [string, 'null']
+      additionalProperties: false
+
+    ReconciliationRequest:
+      description: >-
+        Identificador de la operación del oráculo a reconciliar (ADR-018).
+      type: object
+      required: [operationId]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+      additionalProperties: false
+
+    # ---------------------------------------------------------------------
+    # MK-08 — traza pública. Lista de campos cerrada (RF-44).
+    # ---------------------------------------------------------------------
+
+    PublicTrace:
+      description: >-
+        No expone monto declarado, imagen, clase predicha, confianza, identidad
+        del revisor ni el texto de la justificación. Sí expone el vector de
+        características: viaja en la calldata de la transacción de verificación y
+        ya es público para cualquiera que sepa leer la cadena, de modo que
+        omitirlo no lo ocultaría y volvería inútil el procedimiento de RF-53.
+      type: object
+      required: [number, statusId, provenance, transitions, evidence, featureVector, artifacts, notExposed]
+      properties:
+        number:
+          type: string
+        statusId:
+          $ref: '#/components/schemas/ClaimStatusId'
+        statusIsTerminal:
+          type: boolean
+        provenance:
+          description: >-
+            Reconstruida desde los eventos del contrato y no desde la base de la
+            aseguradora (RNF-26). La base es réplica y no fuente (adr-004).
+          type: string
+        transitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transition'
+        evidence:
+          type: object
+          required: [evidenceId, retrievable]
+          properties:
+            evidenceId:
+              type: string
+            retrievable:
+              description: >-
+                Falso en MK-08c. La traza sigue siendo válida: lo que deja de
+                poder comprobarse es la ligadura entre la imagen y el vector que
+                la prueba consumió.
+              type: boolean
+            digestMatches:
+              type: [boolean, 'null']
+          additionalProperties: false
+        featureVector:
+          description: >-
+            Entrada pública de la prueba. El tercero reejecuta el extractor sobre
+            la evidencia recuperada y compara contra este vector (RF-53); sin él
+            no tiene contra qué comparar.
+          type: array
+          minItems: 576
+          maxItems: 576
+          items:
+            type: number
+        artifacts:
+          type: object
+          required: [proof, replication]
+          properties:
+            proof:
+              description: Columna de la prueba de MK-08 (RF-45, RF-21, RF-22).
+              type: object
+              properties:
+                proofHash:
+                  type: string
+                proofUrl:
+                  type: string
+                publicInputsUrl:
+                  type: string
+                circuitParameters:
+                  type: object
+                  additionalProperties: true
+                verifyingKeyUrl:
+                  type: string
+                verifierAddress:
+                  type: string
+              additionalProperties: false
+            replication:
+              description: >-
+                Columna de la réplica (RF-53, RNF-32, RNF-34). Cuando el reclamo
+                se procesó con el extractor ONNX real, expone las URL públicas en
+                IPFS del modelo y de la especificación de preprocesamiento junto
+                con su hash y versión; con el motor simulado, las URL viajan nulas.
+              type: object
+              properties:
+                extractorOnnxUrl:
+                  type: [string, 'null']
+                extractorOnnxHash:
+                  type: [string, 'null']
+                preprocessingSpecUrl:
+                  type: [string, 'null']
+                runtimeVersion:
+                  type: [string, 'null']
+              additionalProperties: false
+          additionalProperties: false
+        notExposed:
+          description: >-
+            Enumera lo que la vista no muestra, para que la omisión sea legible en
+            lugar de silenciosa (elemento 7 de MK-08).
+          type: array
+          items:
+            type: string
+        imageDisclosureNotice:
+          description: >-
+            Elemento 8. Que la pantalla no muestre la imagen es decisión de
+            presentación; el identificador la recupera igual, y la mitigación es
+            RNF-23 y no la omisión.
+          type: string
+      additionalProperties: false
+
+    # ---------------------------------------------------------------------
+    # Configuración y valores sin medir
+    # ---------------------------------------------------------------------
+
+    UnmeasuredNumber:
+      description: >-
+        Valor numérico que puede no existir todavía. `value` nulo con
+        `measured: false` es la traducción al contrato de la marca [VERIFICAR] de
+        la bóveda; `requirement` nombra la medición que lo cerraría.
+      type: object
+      required: [value, measured]
+      properties:
+        value:
+          type: [number, 'null']
+        measured:
+          type: boolean
+        requirement:
+          type: [string, 'null']
+          examples: ['RNF-15']
+        unit:
+          type: [string, 'null']
+      additionalProperties: false
+
+    UnmeasuredString:
+      type: object
+      required: [value, measured]
+      properties:
+        value:
+          type: [string, 'null']
+        measured:
+          type: boolean
+        requirement:
+          type: [string, 'null']
+      additionalProperties: false
+
+    PublicConfiguration:
+      description: Parámetros públicos necesarios antes de registrar un reclamo.
+      type: object
+      required: [maxFiles, maxFileSizeMb, amountLimit, acceptedFormats]
+      properties:
+        maxFiles:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        maxFileSizeMb:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        amountLimit:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        acceptedFormats:
+          type: array
+          items:
+            type: string
+            enum: [image/jpeg, image/png]
+      additionalProperties: false
+
+    Configuration:
+      description: >-
+        Configuración versionada (RF-32, RF-51). RF-51 exige que el umbral de
+        liquidación automática nunca quede por debajo del de derivación, y esa
+        guarda se valida al arranque y no se documenta.
+      type: object
+      required: [version, policyMode, derivationThreshold, autoSettlementThreshold, amountLimit, maxFileSizeMb, maxFiles, maxRetries]
+      properties:
+        version:
+          type: string
+        policyMode:
+          description: >-
+            Los dos polos del mismo eje. El régimen por defecto del prototipo es
+            el automático con escalamiento por excepción; los dos modos no se
+            combinan, porque el de confirmación obligatoria vacía la entrada del
+            otro.
+          type: string
+          enum: [automatico_con_escalamiento, confirmacion_humana_obligatoria]
+        policyModeLabel:
+          description: El mismo modo en lenguaje natural, para el reclamante.
+          type: string
+        derivationThreshold:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        autoSettlementThreshold:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        amountLimit:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        maxFileSizeMb:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        maxFiles:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        maxRetries:
+          $ref: '#/components/schemas/UnmeasuredNumber'
+        acceptedFormats:
+          type: array
+          items:
+            type: string
+            enum: [image/jpeg, image/png]
+      additionalProperties: false
+
+    Problem:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        detail:
+          type: string
+      additionalProperties: false
+
+security:
+  - bearerToken: []

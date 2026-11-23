@@ -1,0 +1,17 @@
+info:
+  name: Configuración pública
+  type: http
+  seq: 2
+
+docs: |-
+  Parámetros públicos de MK-01 antes de registrar un reclamo. No requiere token.
+  Expone solo maxFiles, maxFileSizeMb, amountLimit y acceptedFormats.
+  No incluye versión, política, umbrales ni límites de reintento.
+  /configuracion conserva su autorización y su respuesta completa.
+
+http:
+  method: GET
+  url: '{{base_url}}/configuracion/publica'
+
+settings:
+  encodeUrl: true

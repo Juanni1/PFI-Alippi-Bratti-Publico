@@ -1,0 +1,10 @@
+// Las nueve vistas del prototipo, una por pantalla de 70-mockups/.
+export { MK01EvidenceUpload } from "./mk01-evidence-upload"
+export { MK02RegistrationReceipt } from "./mk02-registration-receipt"
+export { MK03ClaimStatus } from "./mk03-claim-status"
+export { MK04ResultExplanation } from "./mk04-result-explanation"
+export { MK05ReviewerInbox } from "./mk05-reviewer-inbox"
+export { MK06EscalatedResolution } from "./mk06-escalated-resolution"
+export { MK07QueueMonitor } from "./mk07-queue-monitor"
+export { MK08PublicTrace } from "./mk08-public-trace"
+export { MK09MyClaims } from "./mk09-my-claims"

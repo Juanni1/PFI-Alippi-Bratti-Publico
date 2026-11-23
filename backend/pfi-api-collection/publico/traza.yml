@@ -1,0 +1,19 @@
+info:
+  name: Traza pública
+  type: http
+  seq: 1
+
+docs: |-
+  CU-08 (RF-44, RF-45, RF-53), pantalla MK-08. Sin token: todo lo que cuelga de
+  /publico se audita sin acreditar titularidad. La lista de campos es cerrada y
+  deja afuera el monto, la imagen, la clase predicha, la confianza, la identidad
+  del revisor y el texto de la justificación.
+
+  Un 409 acá significa que el reclamo todavía no tiene prueba que exhibir.
+
+http:
+  method: GET
+  url: '{{base_url}}/publico/reclamos/{{numero}}/traza'
+
+settings:
+  encodeUrl: true

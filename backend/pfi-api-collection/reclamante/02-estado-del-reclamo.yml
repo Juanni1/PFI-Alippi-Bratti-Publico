@@ -1,0 +1,20 @@
+info:
+  name: Estado del reclamo
+  type: http
+  seq: 2
+
+docs: |-
+  CU-02 (RF-46, RF-48). La misma ruta devuelve un cuerpo distinto según el
+  perfil que resuelve el token: acá va el del reclamante, recortado a su columna
+  de la matriz de visibilidad. Para verla como revisor o como operador, se
+  cambia el token por {{token_revisor}} o {{token_operador}}.
+
+http:
+  method: GET
+  url: '{{base_url}}/reclamos/{{numero}}'
+  auth:
+    type: bearer
+    token: '{{token_reclamante}}'
+
+settings:
+  encodeUrl: true

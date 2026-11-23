@@ -1,0 +1,9 @@
+info:
+  name: reclamante
+  seq: 2
+
+docs: |-
+  Recorrido de CU-01 y CU-02. El token es la capacidad de RF-47: abre un
+  expediente y ninguno más, y no se deriva del número de seguimiento. El
+  reclamante nunca recibe el identificador técnico del estado (RNF-35): lo que
+  ve es la etiqueta y la causa ya redactadas por el servidor.

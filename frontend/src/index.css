@@ -1,0 +1,159 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/public-sans";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Tokens de shadcn/ui y paleta institucional de Veredic (Sección 4.8).
+   Tinta (#0F1B2D) y Papel (#F4F6F8) conforman la estructura neutra; Acero (#4A5565)
+   se aplica a texto secundario y bordes; Constancia (#12A57A, texto #0B6B50) y
+   Revisión (#A16207, texto #8A5306) codifican el estado semántico del reclamo. */
+:root {
+  --veredic-tinta: #0f1b2d;
+  --veredic-papel: #f4f6f8;
+  --veredic-constancia: #12a57a;
+  --veredic-constancia-texto: #0b6b50;
+  --veredic-revision: #a16207;
+  --veredic-revision-texto: #8a5306;
+  --veredic-acero: #4a5565;
+
+  --radius: 0.625rem;
+  --background: var(--veredic-papel);
+  --foreground: var(--veredic-tinta);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--veredic-tinta);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--veredic-tinta);
+  --primary: var(--veredic-constancia-texto);
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: var(--veredic-tinta);
+  --muted: oklch(0.963 0.002 197.1);
+  --muted-foreground: var(--veredic-acero);
+  --accent: oklch(0.963 0.002 197.1);
+  --accent-foreground: var(--veredic-tinta);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.925 0.005 214.3);
+  --input: oklch(0.925 0.005 214.3);
+  --ring: var(--veredic-constancia);
+  --chart-1: #6ee7b7;
+  --chart-2: #34d399;
+  --chart-3: var(--veredic-constancia);
+  --chart-4: var(--veredic-constancia-texto);
+  --chart-5: var(--veredic-tinta);
+  --sidebar: oklch(0.987 0.002 197.1);
+  --sidebar-foreground: var(--veredic-tinta);
+  --sidebar-primary: var(--veredic-constancia-texto);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: oklch(0.963 0.002 197.1);
+  --sidebar-accent-foreground: var(--veredic-tinta);
+  --sidebar-border: oklch(0.925 0.005 214.3);
+  --sidebar-ring: var(--veredic-constancia);
+}
+
+.dark {
+  --background: oklch(0.148 0.004 228.8);
+  --foreground: oklch(0.987 0.002 197.1);
+  --card: oklch(0.218 0.008 223.9);
+  --card-foreground: oklch(0.987 0.002 197.1);
+  --popover: oklch(0.218 0.008 223.9);
+  --popover-foreground: oklch(0.987 0.002 197.1);
+  --primary: var(--veredic-constancia);
+  --primary-foreground: var(--veredic-tinta);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.275 0.011 216.9);
+  --muted-foreground: oklch(0.723 0.014 214.4);
+  --accent: oklch(0.275 0.011 216.9);
+  --accent-foreground: oklch(0.987 0.002 197.1);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--veredic-constancia);
+  --chart-1: #6ee7b7;
+  --chart-2: #34d399;
+  --chart-3: var(--veredic-constancia);
+  --chart-4: var(--veredic-constancia-texto);
+  --chart-5: var(--veredic-tinta);
+  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar-foreground: oklch(0.987 0.002 197.1);
+  --sidebar-primary: var(--veredic-constancia);
+  --sidebar-primary-foreground: var(--veredic-tinta);
+  --sidebar-accent: oklch(0.275 0.011 216.9);
+  --sidebar-accent-foreground: oklch(0.987 0.002 197.1);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: var(--veredic-constancia);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-brand: 'Manrope', 'Public Sans Variable', sans-serif;
+  --font-heading: var(--font-sans);
+  --font-sans: 'Public Sans Variable', sans-serif;
+  --color-veredic-tinta: var(--veredic-tinta);
+  --color-veredic-papel: var(--veredic-papel);
+  --color-veredic-constancia: var(--veredic-constancia);
+  --color-veredic-constancia-texto: var(--veredic-constancia-texto);
+  --color-veredic-revision: var(--veredic-revision);
+  --color-veredic-revision-texto: var(--veredic-revision-texto);
+  --color-veredic-acero: var(--veredic-acero);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  /* Los controles nativos —el desplegable de perfil, el selector de archivos—
+     se pintan según `color-scheme` y no según los tokens. Sin esto el <select>
+     quedaba blanco sobre blanco con el tema oscuro puesto. */
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

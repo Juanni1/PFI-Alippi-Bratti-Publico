@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+*.egg-info
+
+# Entorno virtual (se recrea con uv sync)
+.venv
+
+# Datos de la corrida local: la base y la evidencia que el publicador local
+# escribe. En el despliegue viven en el volumen y acá son residuo de pruebas.
+datos/
+
+# Base de datos local y artefactos del modelo (no se versionan acá;
+# los artefactos se publican con su hash, ver RNF-29/RNF-32)
+*.db
+*.db-wal
+*.db-shm
+*.onnx
+*.key
+*.srs
+
+# Excepción acotada, 2026-08-23. Los dos ONNX del extractor y de la cabeza sí
+# entran al repositorio, y por eso van explícitos y no por un patrón amplio.
+# Pesan 3,6 MB y 14 KB, y son lo que separa la demo del motor simulado. La
+# alternativa fiel a la regla —que el servicio los baje por su CID al
+# arrancar— es la del diseño y la que hay que retomar; hoy no está porque
+# publicarlos exige credenciales del custodio remoto.
+# El hash del extractor queda fijado por `tests/test_inference.py`, así que un
+# artefacto equivocado rompe la suite en lugar de pasar inadvertido.
+!artefactos/backbone_mnv3_ft.onnx
+!artefactos/head_mnv3_ft.onnx
+
+# Lo mismo para los TRES artefactos distribuidos del circuito, 4,2 MB en
+# total. Las dos claves no entran y siguen ignoradas por el patrón `*.key` de
+# más arriba: la de generación pesa 133 MB, por encima de lo que GitHub acepta
+# en un archivo, y no hace falta distribuirla porque el setup de EZKL sobre
+# estos mismos artefactos es determinista y tarda un par de segundos. El
+# servicio las deriva al arrancar y comprueba el sha256 de la de verificación.
+!artefactos/model_r576.compiled
+!artefactos/kzg_15.srs
+!artefactos/settings_r576.json
+
+# Secretos. NUNCA commitear (RNF-22).
+.env
+
+# IDE / OS
+.idea/
+# Las configuraciones de ejecución sí se versionan: son del proyecto y sirven
+# igual a los dos autores. Lo que cada uno ajuste para su máquina, no.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store

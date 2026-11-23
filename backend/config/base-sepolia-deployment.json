@@ -1,0 +1,544 @@
+{
+  "red": {
+    "nombre": "base-sepolia",
+    "chainId": 84532
+  },
+  "oraculo": "0x8DBd6376E68FCfD70Df91F1F0717aaA69c5077A0",
+  "verificador": "0x5d6Fc29965Ee1194D401Ac4284c4B0E32A8D4263",
+  "registro": "0x7134E44Fbf6600a996E2e25B403599d0fa76400a",
+  "umbralDeDerivacionBps": 9000,
+  "bytecodeDelVerificador": {
+    "bytes": 13872,
+    "limiteEip170": 24576
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "initialOracle",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "initialVerifier",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ClaimAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum ClaimRegistry.Status",
+          "name": "from",
+          "type": "uint8"
+        }
+      ],
+      "name": "InvalidTransition",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MissingDecisionHash",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MissingEvidence",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotOracle",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "UnknownClaim",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAddress",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "evidenceId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ClaimRegistered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "previousThresholdBps",
+          "type": "uint32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "newThresholdBps",
+          "type": "uint32"
+        }
+      ],
+      "name": "ConfidenceThresholdChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "HumanConfirmationModeChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "favorable",
+          "type": "bool"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "decisionHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ResolutionRecorded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "enum ClaimRegistry.Status",
+          "name": "from",
+          "type": "uint8"
+        },
+        {
+          "indexed": true,
+          "internalType": "enum ClaimRegistry.Status",
+          "name": "to",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum ClaimRegistry.Cause",
+          "name": "cause",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "proofHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "StateTransition",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousVerifier",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newVerifier",
+          "type": "address"
+        }
+      ],
+      "name": "VerifierChanged",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "claims",
+      "outputs": [
+        {
+          "internalType": "enum ClaimRegistry.Status",
+          "name": "status",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "evidenceId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "registeredAt",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "confidenceThresholdBps",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "escalate",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "humanConfirmationRequired",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "oracle",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "evidenceId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "registerClaim",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bool",
+          "name": "favorable",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "decisionHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "resolve",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "newThresholdBps",
+          "type": "uint32"
+        }
+      ],
+      "name": "setConfidenceThreshold",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "setHumanConfirmationMode",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newVerifier",
+          "type": "address"
+        }
+      ],
+      "name": "setVerifier",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bool",
+          "name": "automatic",
+          "type": "bool"
+        }
+      ],
+      "name": "settle",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "claimId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes",
+          "name": "proof",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "instances",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint32",
+          "name": "confidenceBps",
+          "type": "uint32"
+        },
+        {
+          "internalType": "bool",
+          "name": "amountAboveThreshold",
+          "type": "bool"
+        },
+        {
+          "internalType": "bool",
+          "name": "rulesConsistent",
+          "type": "bool"
+        }
+      ],
+      "name": "submitInference",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "verifier",
+      "outputs": [
+        {
+          "internalType": "contract IProofVerifier",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "nonceInicial": 0,
+  "recibos": {
+    "verificador": {
+      "hash": "0x0be2a9a9d1d804d16029f9310488f79d812ecf889f1b3e43492b8648a42372e1",
+      "bloque": 52827863,
+      "gasUsado": "3046976",
+      "estado": 1
+    },
+    "registro": {
+      "hash": "0xfae1c379fe542d6b4b06b67eb275738f126cbae01b809decbd3e285a2ef5e28a",
+      "bloque": 52827885,
+      "gasUsado": "1525790",
+      "estado": 1
+    },
+    "umbral": {
+      "hash": "0xeb474d73f86b883c37312df986ab31e2157a044c04cf8b8f2417c61d77b8aa5e",
+      "bloque": 52827898,
+      "gasUsado": "28585",
+      "estado": 1
+    },
+    "confirmacionHumana": {
+      "hash": "0x45e7b451e516994c228b92fd124d6987982cbb765ca66a620bd54cde44b5bf3d",
+      "bloque": 52827914,
+      "gasUsado": "25175",
+      "estado": 1
+    }
+  },
+  "transacciones": {
+    "verificador": {
+      "nonce": 0,
+      "hash": "0x0be2a9a9d1d804d16029f9310488f79d812ecf889f1b3e43492b8648a42372e1",
+      "destino": null,
+      "contratoEsperado": "0x5d6Fc29965Ee1194D401Ac4284c4B0E32A8D4263",
+      "cotizacionWei": "99000000011047",
+      "recibo": {
+        "hash": "0x0be2a9a9d1d804d16029f9310488f79d812ecf889f1b3e43492b8648a42372e1",
+        "bloque": 52827863,
+        "gasUsado": "3046976",
+        "estado": 1
+      },
+      "gastoContabilizadoWei": "18281856004738"
+    },
+    "registro": {
+      "nonce": 1,
+      "hash": "0xfae1c379fe542d6b4b06b67eb275738f126cbae01b809decbd3e285a2ef5e28a",
+      "destino": null,
+      "contratoEsperado": "0x7134E44Fbf6600a996E2e25B403599d0fa76400a",
+      "cotizacionWei": "22000000005986",
+      "recibo": {
+        "hash": "0xfae1c379fe542d6b4b06b67eb275738f126cbae01b809decbd3e285a2ef5e28a",
+        "bloque": 52827885,
+        "gasUsado": "1525790",
+        "estado": 1
+      },
+      "gastoContabilizadoWei": "9154740002986"
+    },
+    "umbral": {
+      "nonce": 2,
+      "hash": "0xeb474d73f86b883c37312df986ab31e2157a044c04cf8b8f2417c61d77b8aa5e",
+      "destino": "0x7134E44Fbf6600a996E2e25B403599d0fa76400a",
+      "contratoEsperado": null,
+      "cotizacionWei": "1320000000286",
+      "recibo": {
+        "hash": "0xeb474d73f86b883c37312df986ab31e2157a044c04cf8b8f2417c61d77b8aa5e",
+        "bloque": 52827898,
+        "gasUsado": "28585",
+        "estado": 1
+      },
+      "gastoContabilizadoWei": "171510000092"
+    },
+    "confirmacionHumana": {
+      "nonce": 3,
+      "hash": "0x45e7b451e516994c228b92fd124d6987982cbb765ca66a620bd54cde44b5bf3d",
+      "destino": "0x7134E44Fbf6600a996E2e25B403599d0fa76400a",
+      "contratoEsperado": null,
+      "cotizacionWei": "1320000000286",
+      "recibo": {
+        "hash": "0x45e7b451e516994c228b92fd124d6987982cbb765ca66a620bd54cde44b5bf3d",
+        "bloque": 52827914,
+        "gasUsado": "25175",
+        "estado": 1
+      },
+      "gastoContabilizadoWei": "151050000092"
+    }
+  },
+  "codigo": {
+    "verificadorHash": "0x2fe2fc65e66481f00dbd64e92c63ce4c9eda5bacf97d45ba145bc2c229145cff",
+    "verificadorEsperadoHash": "0x2fe2fc65e66481f00dbd64e92c63ce4c9eda5bacf97d45ba145bc2c229145cff",
+    "registroHash": "0x697c93478a114653c42a42efc69b88592e37310bf29565c7415b755fe7aac848",
+    "registroEsperadoHash": "0x697c93478a114653c42a42efc69b88592e37310bf29565c7415b755fe7aac848",
+    "registroBytes": 6717
+  }
+}

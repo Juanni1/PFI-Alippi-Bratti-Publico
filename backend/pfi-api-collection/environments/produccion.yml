@@ -1,0 +1,32 @@
+name: produccion
+variables:
+  - name: base_url
+    value: https://api.ejemplo.invalid
+    description: |-
+      URL base de la instancia desplegada del servicio `api` (sin barra final).
+      Reemplazar por el host efectivo del entorno antes de ejecutar la colección.
+  - name: token_revisor
+    value: ""
+    description: |-
+      Token de sesión del perfil revisor configurado en `SESIONES_INTERNAS`
+      del entorno de despliegue.
+  - name: token_operador
+    value: ""
+    description: |-
+      Token de sesión del perfil operador configurado en `SESIONES_INTERNAS`
+      del entorno de despliegue.
+  - name: token_reclamante
+    value: ""
+    description: |-
+      Capacidad de un reclamo concreto. La escribe el guion posterior de
+      «Registrar reclamo»; los reclamos sembrados guardan la suya en la salida
+      de scripts/seed-demo-claims.py.
+  - name: numero
+    value: ""
+    description: Número de seguimiento del reclamo sobre el que se trabaja.
+  - name: ruta_foto
+    value: ../../ml/fase1/patches/test/glass_shatter/000042_20.jpg
+    description: |-
+      Registrar contra un despliegue real crea un reclamo con su prueba y su
+      publicación en IPFS. Sembrar la demostración es tarea de
+      scripts/seed-demo-claims.py, no de esta colección.

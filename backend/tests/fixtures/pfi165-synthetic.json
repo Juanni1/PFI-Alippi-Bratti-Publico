@@ -1,0 +1,20 @@
+{
+  "provenance": "Imagen sintética determinista, numpy PCG64 seed 165000+170; /tmp/gpclXdNF/pfi165-readiness-lvozuk7n/experiment.py",
+  "image_sha256": "f7af30475a7ef565be7a105748aac90acb2e6c2b710e4cd895f6407a533c3825",
+  "image_bytes": 361,
+  "artifact_sha256": {
+    "backbone_mnv3_ft.onnx": "96c616e82bbf9617c9b6cdb935f9fdc9c4505727a9742c8413e2e90c83c50a6a",
+    "head_mnv3_ft.onnx": "fcbe79eadbf0dab3f01055525c377a4c2a9e345f60633856065205c766e362be",
+    "model_r576.compiled": "c469c7a51ff22b033cc5552b3a582e5cc7d38f39c85c55a6dfc864b35758ad98",
+    "kzg_15.srs": "3e87284aba1732a17edeb30359f069947b67807efaf4fb8c97ff4b50ded9e367",
+    "settings_r576.json": "5b6845bcddfcf96492d5153fe248a9a09460d33ce4ee2652c63ff9bae736b8b3",
+    "pk_r576.key": "2fc08fa9b166609e3720df1175af7b8a76f39833d4917a58cecf84deb81da04a",
+    "vk_r576.key": "f1321136e9c47a291dc440dadf8033472c2f3dd1246c4eab40afb862d38d1d64"
+  },
+  "observed_class": "abolladura",
+  "observed_confidence": 0.9151635330017868,
+  "observed_proof_sha256": "ea778ca513077e56023b6e78b7895fb3c1c115ca428a518e072e342189f723e1",
+  "observed_public_inputs_sha256": "d6c290c8b9c9c0a562584783f9cd76217e1a80ea637dba97e9c20dc1898136b5",
+  "observed_calldata_sha256": "cdf81875484dbde11c3e8f706490d09f3325af1f2ad34a279c5cb5d15ad2be6e",
+  "note": "Valores observados de preparación, no predicciones inyectadas ni prueba de ejecución end-to-end."
+}

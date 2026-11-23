@@ -1,0 +1,17 @@
+info:
+  name: Salud del servicio
+  type: http
+  seq: 1
+
+docs: |-
+  Único endpoint fuera del contrato: lo consulta el healthcheck de Railway, y
+  acá sirve para saber si el servicio está despierto antes de culpar a otra
+  cosa. Un 200 no prueba que el volumen esté montado ni que los artefactos
+  estén en la imagen; para eso hay que pedir un reclamo.
+
+http:
+  method: GET
+  url: '{{base_url}}/health'
+
+settings:
+  encodeUrl: true

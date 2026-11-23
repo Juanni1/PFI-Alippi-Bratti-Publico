@@ -1,0 +1,19 @@
+info:
+  name: Bandeja del revisor
+  type: http
+  seq: 1
+
+docs: |-
+  RF-36, pantalla MK-05. Los reclamos derivados, en orden de llegada. Ese orden
+  es elaboración propia declarada sobre la lista: ningún requerimiento fija el
+  criterio de reparto.
+
+http:
+  method: GET
+  url: '{{base_url}}/revision/bandeja'
+  auth:
+    type: bearer
+    token: '{{token_revisor}}'
+
+settings:
+  encodeUrl: true
